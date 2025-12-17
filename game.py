@@ -9,7 +9,7 @@ class Cell:
         self.mines = mines
 
     def draw(self, camera: Camera, pos: Vec):
-        draw.drawRect(camera, pos, Vec(1, 1), "red" if (self.mines > 0) else "green")
+        draw.drawRect(camera, pos, Vec(1, 1), (255, 0, 0) if (self.mines > 0) else (0, 255, 0))
 
 class Chunk:
     CHUNK_SIZE = 16
@@ -18,13 +18,15 @@ class Chunk:
         self.x = x
         self.y = y
 
-    def generate(self):
-        self.cells = [[Cell(1 if (random.random() < 0.1) else 0) for x in range(self.CHUNK_SIZE)] for y in range(self.CHUNK_SIZE)]
+    def generate(self, map):
+        chunk_seed = hash((map.seed, self.x, self.y))
+        rng = random.Random(chunk_seed)
+        self.cells = [[Cell(1 if (rng.random() < 0.1) else 0) for x in range(self.CHUNK_SIZE)] for y in range(self.CHUNK_SIZE)]
 
-    def load(self):
-        self.generate()
+    def load(self, map):
+        self.generate(map)
 
-    def unload(self):
+    def unload(self, map):
         pass
 
     def draw(self, camera: Camera):
@@ -34,9 +36,8 @@ class Chunk:
 
 class Map:
 
-    RENDER_DISTANCE = 2
-
-    def __init__(self):
+    def __init__(self, seed=0):
+        self.seed = seed if (seed != 0) else random.randint(1, 999999)
         self.chunks = {}
         self.camera = Camera()
 
@@ -44,30 +45,35 @@ class Map:
         self.load_chunks()
     
     def load_chunks(self):
-        cam_chunk_x = int(self.camera.pos.x // Chunk.CHUNK_SIZE)
-        cam_chunk_y = int(self.camera.pos.y // Chunk.CHUNK_SIZE)
+        min_x, min_y, max_x, max_y = self.camera.get_view_bounds()
+
+        # Convert world bounds → chunk bounds
+        min_chunk_x = int(min_x // Chunk.CHUNK_SIZE)
+        max_chunk_x = int(max_x // Chunk.CHUNK_SIZE)
+        min_chunk_y = int(min_y // Chunk.CHUNK_SIZE)
+        max_chunk_y = int(max_y // Chunk.CHUNK_SIZE)
 
         new_chunks = {}
 
-        for dx in range(-self.RENDER_DISTANCE, self.RENDER_DISTANCE + 1):
-            for dy in range(-self.RENDER_DISTANCE, self.RENDER_DISTANCE + 1):
-                dist = (dx**2 + dy**2)**0.5
-                if dist <= self.RENDER_DISTANCE:
-                    chunk_pos = (cam_chunk_x + dx, cam_chunk_y + dy)
-                    if chunk_pos not in self.chunks:
-                        chunk = Chunk(*chunk_pos)
-                        chunk.load()
-                        new_chunks[chunk_pos] = chunk
-                    else:
-                        new_chunks[chunk_pos] = self.chunks[chunk_pos]
+        for cx in range(min_chunk_x, max_chunk_x + 1):
+            for cy in range(min_chunk_y, max_chunk_y + 1):
+                pos = (cx, cy)
 
+                if pos not in self.chunks:
+                    chunk = Chunk(cx, cy)
+                    chunk.load(self)
+                    new_chunks[pos] = chunk
+                else:
+                    new_chunks[pos] = self.chunks[pos]
+
+        # Unload chunks no longer visible
         for pos, chunk in self.chunks.items():
             if pos not in new_chunks:
-                chunk.unload()
+                chunk.unload(self)
 
         self.chunks = new_chunks
 
     def draw(self):
-        draw.clearScreen()
+        draw.clearScreen((0, 0, 0))
         for chunk in self.chunks.values():
             chunk.draw(self.camera)

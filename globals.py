@@ -1,2 +1,3 @@
 class Globals:
-    canvas = None
+    screen = None
+    resolution = None
