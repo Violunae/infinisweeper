@@ -1,0 +1,2 @@
+class Globals:
+    canvas = None
