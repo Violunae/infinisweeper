@@ -26,16 +26,30 @@ class Vec:
     def dot(self, other: "Vec") -> float:
         return self.x * other.x + self.y * other.y
     
+    def floor(self) -> "Vec":
+        return Vec(math.floor(self.x), math.floor(self.y))
+    
+    def ceil(self) -> "Vec":
+        mag = self.magnitude() or 1
+        return Vec(math.ceil(self.x), math.ceil(self.y))
+    
     def getTuple(self):
         return (self.x, self.y)
     
 class Camera:
     def __init__(self):
         self.pos = Vec(0, 0)
-        self.zoom = 25.0
+        self.zoom = 16.0
 
     def transform(self, point: Vec):
         return Vec((point.x - self.pos.x) * self.zoom + (Globals.resolution.x / 2), (point.y - self.pos.y) * self.zoom + (Globals.resolution.y / 2))
+    
+    def reverse_transform(self, point: Vec):
+        return Vec(
+            (point.x - (Globals.resolution.x / 2)) / self.zoom + self.pos.x,
+            (point.y - (Globals.resolution.y / 2)) / self.zoom + self.pos.y
+        )
+
 
     def get_view_bounds(self):
         half_w = Globals.resolution.x / (2 * self.zoom)
