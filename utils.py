@@ -33,7 +33,7 @@ class Vec:
         mag = self.magnitude() or 1
         return Vec(math.ceil(self.x), math.ceil(self.y))
     
-    def getTuple(self):
+    def get_tuple(self):
         return (self.x, self.y)
     
 class Camera:
