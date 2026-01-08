@@ -1,5 +1,6 @@
 import os
 import struct
+import shutil
 
 REGION_SIZE = 16
 SAVE_ID = "main"
@@ -62,3 +63,6 @@ def reload_chunk(cx, cy):
                 return data
 
     return None
+
+def delete_save():
+    shutil.rmtree(f"saves/{SAVE_ID}", ignore_errors=True)

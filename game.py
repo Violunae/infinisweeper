@@ -171,12 +171,8 @@ class Map:
     def get_cell(self, pos: Vec):
         chunk = self.get_chunk(Map.global_to_local_chunk(pos))
         return chunk.get_cell(self, Map.global_to_local_coord(pos))
-
-    def open_cell(self, pos: Vec, depth = 0):
-        cell = self.get_cell(pos)
-        if (cell.opened): return
-
-        cell.opened = True
+    
+    def count_mines_around(self, pos: Vec):
         mines = 0
         mines = mines + self.get_cell(pos + Vec(-1, -1)).mines
         mines = mines + self.get_cell(pos + Vec( 0, -1)).mines
@@ -186,9 +182,19 @@ class Map:
         mines = mines + self.get_cell(pos + Vec( 0,  1)).mines
         mines = mines + self.get_cell(pos + Vec(-1,  1)).mines
         mines = mines + self.get_cell(pos + Vec(-1,  0)).mines
+        return mines
+
+    def open_cell(self, pos: Vec, depth = 0):
+        cell = self.get_cell(pos)
+
+        if ((cell.flags > 0) or (cell.opened and (depth != 0))): return
+
+        wasOpen = cell.opened 
+        cell.opened = True
+        mines = self.count_mines_around(pos)
         cell.cached_num = mines
 
-        if ((mines == 0) and (depth < 512)):
+        if (((mines == 0) and (depth < 512)) or (wasOpen and (depth == 0))):
             self.open_cell(pos + Vec(-1, -1), depth + 1)
             self.open_cell(pos + Vec( 0, -1), depth + 1)
             self.open_cell(pos + Vec( 1, -1), depth + 1)
@@ -197,6 +203,8 @@ class Map:
             self.open_cell(pos + Vec( 0,  1), depth + 1)
             self.open_cell(pos + Vec(-1,  1), depth + 1)
             self.open_cell(pos + Vec(-1,  0), depth + 1)
+
+
 
     def flag_cell(self, pos: Vec):
         cell = self.get_cell(pos)
@@ -207,3 +215,6 @@ class Map:
         draw.clear_screen((101, 119, 128))
         for chunk in self.chunks.values():
             chunk.draw(self.camera)
+    
+    def delete(self):
+        save.delete_save()

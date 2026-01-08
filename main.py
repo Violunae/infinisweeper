@@ -33,6 +33,11 @@ if __name__ == "__main__":
                 running = False
 
             elif event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 2:
+                    dragging = True
+                    last_mouse_pos = Vec(*event.pos)
+
+            elif event.type == pygame.MOUSEBUTTONUP:
                 if ((event.button == 1) or (event.button == 3)):
                     mouse_pos = Vec(*event.pos)
                     global_pos = map.camera.reverse_transform(mouse_pos)
@@ -41,11 +46,6 @@ if __name__ == "__main__":
                     else:
                         map.flag_cell(global_pos.floor())
                 elif event.button == 2:
-                    dragging = True
-                    last_mouse_pos = Vec(*event.pos)
-
-            elif event.type == pygame.MOUSEBUTTONUP:
-                if event.button == 2:
                     dragging = False
 
             elif event.type == pygame.MOUSEWHEEL:
@@ -55,6 +55,9 @@ if __name__ == "__main__":
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_TAB:
                     Globals.dark_mode = not Globals.dark_mode
+                if event.key == pygame.K_DELETE:
+                    map.delete()
+                    map = game.Map()
 
         if dragging:
             mouse_x, mouse_y = pygame.mouse.get_pos()
