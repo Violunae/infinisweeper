@@ -3,26 +3,24 @@ import struct
 import shutil
 
 REGION_SIZE = 16
-SAVE_ID = "main"
+
+def _region_path(slot, rx, ry):
+    return f"saves/{slot}/r.{rx}.{ry}.msreg"
 
 
-def _region_path(rx, ry):
-    return f"saves/{SAVE_ID}/r.{rx}.{ry}.msreg"
+def _ensure_save_dir(slot):
+    os.makedirs(f"saves/{slot}", exist_ok=True)
 
 
-def _ensure_save_dir():
-    os.makedirs(f"saves/{SAVE_ID}", exist_ok=True)
-
-
-def save_chunk(cx, cy, chunk_size, cell_bytes: bytes):
-    _ensure_save_dir()
+def save_chunk(slot, cx, cy, chunk_size, cell_bytes: bytes):
+    _ensure_save_dir(slot)
 
     rx = cx // REGION_SIZE
     ry = cy // REGION_SIZE
     lx = cx % REGION_SIZE
     ly = cy % REGION_SIZE
 
-    path = _region_path(rx, ry)
+    path = _region_path(slot, rx, ry)
     chunks = {}
 
     if os.path.exists(path):
@@ -43,13 +41,13 @@ def save_chunk(cx, cy, chunk_size, cell_bytes: bytes):
             f.write(data)
 
 
-def reload_chunk(cx, cy):
+def reload_chunk(slot, cx, cy):
     rx = cx // REGION_SIZE
     ry = cy // REGION_SIZE
     lx = cx % REGION_SIZE
     ly = cy % REGION_SIZE
 
-    path = _region_path(rx, ry)
+    path = _region_path(slot, rx, ry)
     if not os.path.exists(path):
         return None
 
@@ -64,5 +62,5 @@ def reload_chunk(cx, cy):
 
     return None
 
-def delete_save():
-    shutil.rmtree(f"saves/{SAVE_ID}", ignore_errors=True)
+def delete_save(slot):
+    shutil.rmtree(f"saves/{slot}", ignore_errors=True)

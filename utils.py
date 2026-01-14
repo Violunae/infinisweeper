@@ -39,7 +39,7 @@ class Vec:
 class Camera:
     def __init__(self):
         self.pos = Vec(0, 0)
-        self.zoom = 16.0
+        self.zoom = 32.0
 
     def transform(self, point: Vec):
         return Vec((point.x - self.pos.x) * self.zoom + (Globals.resolution.x / 2), (point.y - self.pos.y) * self.zoom + (Globals.resolution.y / 2))

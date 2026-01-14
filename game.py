@@ -16,7 +16,6 @@ class Cell:
         self.opened = True
 
     def draw(self, camera: Camera, pos: Vec):
-        #draw.draw_rect(camera, pos, Vec(1, 1), (255, 0, 0) if (self.mines > 0) else (0, 255, 0))
         frame = 0
         if (self.opened):
             if (self.mines == 0):
@@ -49,8 +48,8 @@ class Chunk:
 
 
     def load(self, map):
-        data = save.reload_chunk(self.x, self.y)
-        if data:
+        data = save.reload_chunk(map.slot, self.x, self.y)
+        if (data):
             loaded = Chunk.from_bytes(self.x, self.y, data)
             self.cells = loaded.cells
             self.generated = True
@@ -59,8 +58,8 @@ class Chunk:
             self.generated = False
 
     def unload(self, map):
-        if self.generated:
-            save.save_chunk(self.x, self.y, self.CHUNK_SIZE, self.to_bytes())
+        if (self.generated and (map.slot >= 0)):
+            save.save_chunk(map.slot, self.x, self.y, self.CHUNK_SIZE, self.to_bytes())
 
     def get_cell(self, map, pos: Vec):
         if (self.generated == False):
@@ -108,12 +107,15 @@ class Chunk:
  
 class Map:
 
-    def __init__(self, seed=0):
-        self.seed = seed if (seed != 0) else random.randint(1, 999999)
+    def __init__(self, slot: int, seed=-1):
+        self.slot = slot
+        self.seed = seed if (seed != 0) else random.randint(0, 999999)
         self.chunks = {}
         self.camera = Camera()
 
     def update(self):
+        if (self.slot < 0):
+            self.demo()
         self.load_chunks()
     
     def load_chunks(self):
@@ -215,6 +217,20 @@ class Map:
         draw.clear_screen((101, 119, 128))
         for chunk in self.chunks.values():
             chunk.draw(self.camera)
+
+    def save(self):
+        self.unload_chunks()
     
     def delete(self):
-        save.delete_save()
+        save.delete_save(self.slot)
+
+    def demo(self):
+        self.camera.pos += Vec(0.1, 0.05)
+        cell_pos = self.camera.pos.floor() + Vec(15, 8 + random.randrange(-8, 8))
+        cell = self.get_cell(cell_pos)
+        if (cell.mines > 0):
+            if (cell.flags == 0):
+                self.flag_cell(cell_pos)
+        else:
+            if (not(cell.opened)):
+                self.open_cell(cell_pos)
