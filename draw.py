@@ -7,8 +7,8 @@ from utils import *
 def clear_screen(color=(0, 0, 0)):
     Globals.screen.fill(color)
 
-def draw_polygon(camera: Camera, points, color=(255, 255, 255)):
-    trans_points = [camera.transform(point).getTuple() for point in points]
+def draw_polygon(camera: Camera, points, color = (255, 255, 255)):
+    trans_points = [Camera.static_transform(camera, point).get_tuple() for point in points]
     #flat_points = [coord for point in trans_points for coord in point]
 
     pygame.draw.polygon(Globals.screen, color, trans_points)
@@ -28,9 +28,16 @@ def draw_texture(camera: Camera, texture: pygame.Surface, pos: Vec, top_left: Ve
     # pos = pos + Vec(tx, ty)
 
     surf = texture.subsurface(pygame.Rect(top_left.x, top_left.y, size.x, size.y))
-    surf_scaled = pygame.transform.scale(surf, (camera.zoom, camera.zoom))
-    trans_pos = camera.transform(pos)
+    zoom = camera.zoom if (camera != None) else 64
+    surf_scaled = pygame.transform.scale_by(surf, (zoom / 32.0, zoom / 32.0))
+    trans_pos = Camera.static_transform(camera, pos)
     Globals.screen.blit(surf_scaled, trans_pos.get_tuple())
+    #if (camera == None): raise 4564645
 
 def draw_field_tile(camera: Camera, column: int, row: int, pos: Vec):
     draw_texture(camera, Sprites.field, pos, Vec(column * 32, row * 32), Vec(32, 32))
+
+fade_surface = pygame.Surface((1000, 1000), pygame.SRCALPHA)
+def draw_fade(color = (0, 0, 0, 127)):
+    pygame.draw.polygon(fade_surface, color, [(0, 0), (2000, 0), (0, 2000)])
+    Globals.screen.blit(fade_surface, (0, 0))

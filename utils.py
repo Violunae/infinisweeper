@@ -44,6 +44,11 @@ class Camera:
     def transform(self, point: Vec):
         return Vec((point.x - self.pos.x) * self.zoom + (Globals.resolution.x / 2), (point.y - self.pos.y) * self.zoom + (Globals.resolution.y / 2))
     
+    @staticmethod
+    def static_transform(camera: "Camera", point: Vec):
+        if (camera == None): return point
+        return camera.transform(point)
+    
     def reverse_transform(self, point: Vec):
         return Vec(
             (point.x - (Globals.resolution.x / 2)) / self.zoom + self.pos.x,

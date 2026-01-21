@@ -22,9 +22,9 @@ class Cell:
                 if (self.cached_num <= 0):
                     frame = 1
                 else:
-                    frame = 7 + self.cached_num
+                    frame = 3 + self.cached_num
             else:
-                frame = 4 + self.mines
+                frame = 2 + self.mines
         elif (self.flags > 0):
             frame = 1 + self.flags
 
@@ -214,7 +214,6 @@ class Map:
         cell.flags = 1 - cell.flags
 
     def draw(self):
-        draw.clear_screen((101, 119, 128))
         for chunk in self.chunks.values():
             chunk.draw(self.camera)
 

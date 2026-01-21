@@ -1,7 +1,7 @@
 import pygame
 from globals import Globals
 from sprites import Sprites
-from app import run
+from app import App
 from utils import *
 
 if __name__ == "__main__":
@@ -12,7 +12,9 @@ if __name__ == "__main__":
     pygame.display.set_caption("InfiniSweeper")
 
     Sprites.field = pygame.image.load("assets/textures/field.png").convert()
+    Sprites.gui = pygame.image.load("assets/textures/gui.png").convert_alpha()
 
-    run()
+    app = App()
+    app.run()
 
     pygame.quit()
