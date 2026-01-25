@@ -1,6 +1,6 @@
 import pygame
+
 from globals import Globals
-from sprites import Sprites
 
 from utils import * 
 
@@ -38,10 +38,13 @@ def draw_texture(camera: Camera, texture: pygame.Surface, pos: Vec, top_left: Ve
     Globals.screen.blit(surf_scaled, trans_pos.get_tuple())
     #if (camera == None): raise 4564645
 
-def draw_field_tile(camera: Camera, column: int, row: int, pos: Vec):
-    draw_texture(camera, Sprites.field, pos, Vec(column * 32, row * 32), Vec(32, 32))
-
 fade_surface = pygame.Surface((1000, 1000), pygame.SRCALPHA)
 def draw_fade(color = (0, 0, 0, 127)):
     pygame.draw.polygon(fade_surface, color, [(0, 0), (2000, 0), (0, 2000)])
     Globals.screen.blit(fade_surface, (0, 0))
+
+def draw_text(pos: Vec, text: str, color, font):
+    pos = pos * 2 + Vec(0, -8)
+    surf = font.render(text, False, color)
+    surf_scaled = pygame.transform.scale_by(surf, (2, 2))
+    Globals.screen.blit(surf_scaled, pos.get_tuple())

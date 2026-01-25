@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 import math
+import time
+
 from globals import Globals
 
 @dataclass
@@ -39,6 +41,9 @@ class Vec:
     def in_rect(self, top_left: "Vec", size: "Vec"):
         return (self.x >= top_left.x) and (self.y >= top_left.y) and (self.x < top_left.x + size.x) and (self.y < top_left.y + size.y)
     
+    def distance_to(self, other: "Vec"):
+        return math.sqrt(math.pow(other.x - self.x, 2) + math.pow(other.y - self.y, 2))
+    
 class Camera:
     def __init__(self):
         self.pos = Vec(0, 0)
@@ -69,3 +74,6 @@ class Camera:
         max_y = self.pos.y + half_h
 
         return min_x, min_y, max_x, max_y
+
+def get_formated_time(seconds):
+    return time.strftime("%H:%M:%S", time.gmtime(seconds))

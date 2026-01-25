@@ -1,9 +1,49 @@
 import random
+import time
+import struct
 
 import draw
-from utils import *
 import save
-import struct
+
+from utils import *
+
+class ExplosionWave:
+    def __init__(self, pos: Vec):
+        self.life = 1
+        self.pos = pos
+
+    def update(self):
+        self.life = self.life - 0.01
+
+    def get_tile_offset(self, cell_pos):
+        life = self.life
+        dist = self.pos.distance_to(cell_pos)
+
+        screenshake = math.sin(life * 150) * (life ** 12)
+        offset_x = screenshake * 0.5
+        offset_y = 0.0
+
+        if (1.0 - life) * 5.0 - dist * 0.2 <= 0.0:
+            return Vec(offset_x, offset_y)
+
+        phase = (dist * 0.2 + life * 5.0) * math.tau
+        val = -math.sin(phase) * life
+
+        dx = cell_pos.x - self.pos.x
+        dy = cell_pos.y - self.pos.y
+        length = math.hypot(dx, dy)
+
+        if length > 0.0:
+            inv_len = 1.0 / length
+            offset_x += dx * inv_len * val * 0.25
+            offset_y += dy * inv_len * val * 0.25
+
+        offset_y -= val * 0.5
+
+        return Vec(offset_x, offset_y)
+    
+    def alive(self):
+        return self.life > 0
 
 class Cell:
     def __init__(self, mines: int):
@@ -12,9 +52,14 @@ class Cell:
         self.opened = False
         self.cached_num = -1
 
-    def open(self):
-        self.opened = True
-
+    def open(self, map: "Map", pos: Vec):
+        if (not(self.opened)):
+            self.opened = True
+            if (self.mines > 0):
+                map.bombs_exploded = map.bombs_exploded + 1
+                map.explode(pos)
+            else:
+                map.cells_opened = map.cells_opened + 1
 
     def draw(self, camera: Camera, pos: Vec):
         frame = 0
@@ -29,7 +74,7 @@ class Cell:
         elif (self.flags > 0):
             frame = 1 + self.flags
 
-        draw.draw_field_tile(camera, frame, 1 if Globals.dark_mode else 0, pos)
+        draw.draw_texture(camera, Globals.texture_field, pos, Vec(frame * 32, 32 if Globals.dark_mode else 0), Vec(32, 32))
 
 class Chunk:
     CHUNK_SIZE = 16
@@ -66,11 +111,16 @@ class Chunk:
         if (self.generated == False):
             self.generate(map)
         return self.cells[pos.y][pos.x]
+    
+    def get_cell_pos(self, cell_x, cell_y):
+        return Vec(self.CHUNK_SIZE * self.x + cell_x, self.CHUNK_SIZE * self.y + cell_y)
 
-    def draw(self, camera: Camera):
-        for cellY in range(self.CHUNK_SIZE):
-            for cellX in range(self.CHUNK_SIZE):
-                self.cells[cellY][cellX].draw(camera, Vec(self.CHUNK_SIZE * self.x + cellX, self.CHUNK_SIZE * self.y + cellY))
+    def draw(self, map: "Map"):
+        for cell_y in range(self.CHUNK_SIZE):
+            for cell_x in range(self.CHUNK_SIZE):
+                pos = self.get_cell_pos(cell_x, cell_y)
+                pos = map.offset_tile_pos(pos)
+                self.cells[cell_y][cell_x].draw(map.camera, pos)
 
     def to_bytes(self):
         data = bytearray()
@@ -108,16 +158,18 @@ class Chunk:
  
 class Map:
 
-    def __init__(self, slot: int, seed=-1, score=0, flags_placed=0, cells_opened=0, bombs_exploded=0):
+    def __init__(self, slot: int, seed=-1, flags_placed=0, cells_opened=0, bombs_exploded=0, playtime=0):
         self.slot = slot
         self.chunks = {}
         self.camera = Camera()
+        self.last_save_time = int(time.time())
+        self.explosion_waves = []
 
         self.seed = seed if (seed != -1) else random.randint(0, 999999)
-        self.score = score
         self.flags_placed = flags_placed
         self.cells_opened = cells_opened
         self.bombs_exploded = bombs_exploded
+        self.playtime = playtime
 
     @staticmethod
     def load(slot, create):
@@ -128,6 +180,7 @@ class Map:
         return Map.from_bytes(slot, data)
 
     def update(self):
+        self.handle_waves()
         if (self.slot == -1):
             self.demo()
         self.load_chunks()
@@ -206,7 +259,7 @@ class Map:
         if ((cell.flags > 0) or (cell.opened and (depth != 0))): return
 
         wasOpen = cell.opened 
-        cell.open()
+        cell.open(self, pos)
         mines = self.count_mines_around(pos)
         cell.cached_num = mines
 
@@ -220,19 +273,44 @@ class Map:
             self.open_cell(pos + Vec(-1,  1), depth + 1)
             self.open_cell(pos + Vec(-1,  0), depth + 1)
 
-
-
     def flag_cell(self, pos: Vec):
         cell = self.get_cell(pos)
         if (cell.opened): return
-        cell.flags = 1 - cell.flags
+        if (cell.flags == 0):
+            cell.flags = 1
+            self.flags_placed = self.flags_placed + 1
+        else:
+            cell.flags = 0
+            self.flags_placed = self.flags_placed - 1
+
+    def get_score(self):
+        return (self.cells_opened * 5) - (self.bombs_exploded * 100)
+    
+    def get_playtime(self):
+        current_time = int(time.time())
+        return self.playtime + (current_time - self.last_save_time)
+        
+    def get_formated_playtime(self):
+        return get_formated_time(self.get_playtime())
 
     def draw(self):
         for chunk in self.chunks.values():
-            chunk.draw(self.camera)
+            chunk.draw(self)
+
+    def explode(self, pos: Vec):
+        self.explosion_waves.append(ExplosionWave(pos))
+
+    def offset_tile_pos(self, pos: Vec):
+        new_pos = pos
+        for wave in self.explosion_waves:
+            new_pos = new_pos + wave.get_tile_offset(pos)
+        return new_pos
+            
 
     def save(self):
         if (self.slot < 0): return
+        self.playtime = self.get_playtime()
+        self.last_save_time = int(time.time())
         save.save_map(self)
         self.unload_chunks()
     
@@ -241,28 +319,41 @@ class Map:
 
     def to_bytes(self):
         return struct.pack(
-            "<IlIII",
+            "<IIIIIddf",
             self.seed,
-            self.score,
             self.flags_placed,
             self.cells_opened,
-            self.bombs_exploded
+            self.bombs_exploded,
+            self.playtime,
+            self.camera.pos.x,
+            self.camera.pos.y,
+            self.camera.zoom
         )
     
     @staticmethod
     def from_bytes(slot, data):
-        seed, score, flags_placed, cells_opened, bombs_exploded = struct.unpack(
-            "<IlIII", data
+        seed, flags_placed, cells_opened, bombs_exploded, playtime, camera_x, camera_y, camera_zoom = struct.unpack(
+            "<IIIIIddf", data
         )
 
-        return Map(
+        map = Map(
             slot,
             seed,
-            score,
             flags_placed,
             cells_opened,
-            bombs_exploded
+            bombs_exploded,
+            playtime
         )
+
+        map.camera.pos = Vec(camera_x, camera_y)
+        map.camera.zoom = camera_zoom
+    
+        return map
+    
+    def handle_waves(self):
+        for wave in self.explosion_waves:
+            wave.update()
+        self.explosion_waves = [wave for wave in self.explosion_waves if wave.alive()]
     
     def demo(self):
         self.camera.pos += Vec(0.05, 0.025)

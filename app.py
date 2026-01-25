@@ -1,10 +1,12 @@
 import pygame
+
 import game
 import draw
 import save
-from utils import *
+import gui
 from globals import Globals
-from sprites import Sprites
+
+from utils import *
 
 class App:
     def run(self):
@@ -31,20 +33,27 @@ class App:
                     if event.button in (1, 3):
                         mouse_pos = Vec(*event.pos)
 
-                        if (self.menu.click(Vec(*event.pos), True) != None): continue
-                        if (self.bar.click(Vec(*event.pos), True) != None): continue
+                        if self.menu.click(mouse_pos, True) is not None:
+                            continue
+                        if self.bar.click(mouse_pos, True) is not None:
+                            continue
 
                         global_pos = self.map.camera.reverse_transform(mouse_pos).floor()
+
                         if event.button == 1:
                             self.map.open_cell(global_pos)
                         else:
                             self.map.flag_cell(global_pos)
+
                     elif event.button == 2:
                         dragging = False
 
                 elif event.type == pygame.MOUSEWHEEL:
-                    if (self.slot != -1):
-                        self.map.camera.zoom = max(8.0, min(64.0, self.map.camera.zoom + event.y))
+                    if self.slot != -1:
+                        self.map.camera.zoom = max(
+                            8.0,
+                            min(64.0, self.map.camera.zoom + event.y),
+                        )
 
                 elif event.type == pygame.QUIT:
                     self.map.save()
@@ -52,16 +61,22 @@ class App:
 
             current_mouse_pos = Vec(*pygame.mouse.get_pos())
 
-            pointer_menu = self.menu.click(current_mouse_pos, False)
-            pointer_bar = self.bar.click(current_mouse_pos, False)
             pointer = True
-            if (pointer_menu != None): pointer = pointer_menu
-            if (pointer_bar != None): pointer = pointer_bar
-            pygame.mouse.set_cursor(pygame.SYSTEM_CURSOR_HAND if (pointer) else pygame.SYSTEM_CURSOR_ARROW)
+            menu_pointer = self.menu.click(current_mouse_pos, False)
+            bar_pointer = self.bar.click(current_mouse_pos, False)
+
+            if menu_pointer is not None:
+                pointer = menu_pointer
+            if bar_pointer is not None:
+                pointer = bar_pointer
+
+            pygame.mouse.set_cursor(
+                pygame.SYSTEM_CURSOR_HAND if pointer else pygame.SYSTEM_CURSOR_ARROW
+            )
 
             if dragging:
                 delta = current_mouse_pos - last_mouse_pos
-                
+
                 self.map.camera.pos.x -= delta.x / self.map.camera.zoom
                 self.map.camera.pos.y -= delta.y / self.map.camera.zoom
 
@@ -82,13 +97,14 @@ class App:
         self.map = game.Map.load(slot, True)
         self.menu.active = False
         self.bar.active = True
-    
+
     def delete_slot(self, slot):
         save.delete_save(slot)
         self.menu = self.create_menu()
 
     def toggle_dark_mode(self):
         Globals.dark_mode = not Globals.dark_mode
+        self.menu = self.create_menu()
 
     def quit(self):
         self.running = False
@@ -101,96 +117,191 @@ class App:
         self.bar.active = False
 
     def create_menu(self):
+        existing_slots = []
 
-        def _renderer(menu):
+        for i in range(3):
+            map = game.Map.load(i, False)
+            if map is not None:
+                existing_slots.append(i)
+
+        def _renderer(menu, existing_slots):
             draw.draw_fade((0, 0, 0, 127))
 
             logo_sway = math.sin(pygame.time.get_ticks() * 0.002) * 8
-            Menu.draw_ui(Vec(99, 23 + logo_sway), Vec(0, 336), Vec(302, 102))
+            menu.draw_ui(Vec(99, 23 + logo_sway), Vec(0, 336), Vec(302, 102))
+            menu.draw_ui(Vec(130, 138), Vec(0, 112), Vec(240, 224))
 
-            Menu.draw_ui(Vec(130, 138), Vec(0, 112), Vec(240, 224))
+            for i in range(3):
+                y = 150 + (i * 48)
 
-            for i in range(0, 3):
-                Menu.draw_ui(Vec(142, 150 + (i * 48)), Vec(12, 60), Vec(216, 40))
+                menu.draw_ui(Vec(142, y), Vec(12, 60), Vec(216, 40))
 
-        menu = Menu(self, _renderer, Vec(0, 0), Vec(500, 500))
+                if i in existing_slots:
+                    menu.draw_ui(Vec(265, y + 7), Vec(240, 0), Vec(7, 27))
+                    draw.draw_rect(
+                        None,
+                        Vec(249, y + 4),
+                        Vec(2, 33),
+                        (30, 39, 44) if Globals.dark_mode else (106, 124, 148),
+                    )
 
-        for i in range(0, 3):
+        menu = gui.Menu(
+            self,
+            lambda menu, es=existing_slots: _renderer(menu, es),
+            Vec(0, 0),
+            Vec(500, 500),
+        )
+
+        for i in range(3):
             map = game.Map.load(i, False)
-            exists = map != None
-            menu.add_button(Button(Vec(146, 154 + (i * 48)), Vec(0 if (exists) else 48, 0), Vec(34, 34), lambda slot=i: self.start_slot(slot)))
-            if (exists):
-                menu.add_button(Button(Vec(322, 154 + (i * 48)), Vec(96, 0), Vec(34, 34), lambda slot=i: self.delete_slot(slot)))
+            exists = map is not None
+            y = 154 + (i * 48)
 
-        menu.add_button(Button(Vec(146, 314), Vec(144, 0), Vec(34, 34), self.quit))
-        menu.add_button(Button(Vec(234, 314), Vec(240, 64), Vec(34, 34), lambda slot=-2: self.start_slot(slot)))
-        menu.add_button(Button(Vec(322, 314), Vec(192, 0), Vec(34, 34), self.toggle_dark_mode))
+            menu.add_button(
+                gui.Button(
+                    Vec(146, y),
+                    Vec(0 if exists else 48, 0),
+                    Vec(34, 34),
+                    lambda slot=i: self.start_slot(slot),
+                )
+            )
+
+            if exists:
+                menu.add_button(
+                    gui.Button(
+                        Vec(322, y),
+                        Vec(96, 0),
+                        Vec(34, 34),
+                        lambda slot=i: self.delete_slot(slot),
+                    )
+                )
+
+                menu.add_label(
+                    gui.Label(
+                        Vec(194, y + 4),
+                        f"SLOT {i + 1}",
+                        (0, 0, 0) if Globals.dark_mode else (255, 255, 255),
+                        Globals.font_big,
+                    )
+                )
+
+                menu.add_label(
+                    gui.Label(
+                        Vec(200, y + 13),
+                        map.get_formated_playtime(),
+                        (30, 39, 44)
+                        if Globals.dark_mode
+                        else (106, 124, 148),
+                        Globals.font_small,
+                    )
+                )
+
+                menu.add_label(
+                    gui.Label(
+                        Vec(199, y + 22),
+                        f"{map.get_score():08d}",
+                        (30, 39, 44)
+                        if Globals.dark_mode
+                        else (106, 124, 148),
+                        Globals.font_small,
+                    )
+                )
+
+                menu.add_label(
+                    gui.Label(
+                        Vec(276, y + 2),
+                        f"{map.flags_placed:08d}",
+                        (0, 0, 0) if Globals.dark_mode else (255, 255, 255),
+                        Globals.font_small,
+                    )
+                )
+
+                menu.add_label(
+                    gui.Label(
+                        Vec(276, y + 12),
+                        f"{map.cells_opened:08d}",
+                        (0, 0, 0) if Globals.dark_mode else (255, 255, 255),
+                        Globals.font_small,
+                    )
+                )
+
+                menu.add_label(
+                    gui.Label(
+                        Vec(276, y + 22),
+                        f"{map.bombs_exploded:08d}",
+                        (0, 0, 0) if Globals.dark_mode else (255, 255, 255),
+                        Globals.font_small,
+                    )
+                )
+            else:
+                menu.add_label(
+                    gui.Label(
+                        Vec(216, y + 13),
+                        "NEW GAME",
+                        (30, 39, 44)
+                        if Globals.dark_mode
+                        else (106, 124, 148),
+                        Globals.font_big,
+                    )
+                )
+
+        menu.add_button(gui.Button(Vec(146, 314), Vec(144, 0), Vec(34, 34), self.quit))
+        # menu.add_button(Button(Vec(234, 314), Vec(240, 64), Vec(34, 34), lambda slot=-2: self.start_slot(slot)))
+        menu.add_button(
+            gui.Button(Vec(322, 314), Vec(192, 0), Vec(34, 34), self.toggle_dark_mode)
+        )
 
         return menu
-    
+
     def create_bar(self):
+        def _renderer(bar):
+            fg = (0, 0, 0) if Globals.dark_mode else (255, 255, 255)
+            bg = (255, 255, 255) if Globals.dark_mode else (0, 0, 0)
 
-        def _renderer(menu):
-            draw.draw_rect(None, Vec(0, 0), Vec(500, 11), (255, 255, 255) if (Globals.dark_mode) else (0, 0, 0))
+            draw.draw_rect(None, Vec(0, 0), Vec(500, 11), bg)
 
-        bar = Menu(self, _renderer, Vec(0, 0), Vec(500, 11), False)
+            draw.draw_text(Vec(20, 2), "BACK", fg, Globals.font_big)
+            draw.draw_text(
+                Vec(58, 1),
+                bar.app.map.get_formated_playtime(),
+                fg,
+                Globals.font_small,
+            )
+            draw.draw_text(
+                Vec(235, 1),
+                f"{bar.app.map.get_score():08d}",
+                fg,
+                Globals.font_small,
+            )
 
-        bar.add_button(Button(Vec(1, 1), Vec(240, 48), Vec(18, 9), self.back))
+            bar.draw_ui(Vec(359, 1), Vec(240, 30), Vec(9, 9))
+            bar.draw_ui(Vec(360, 2), Vec(240, 0), Vec(7, 7))
+            draw.draw_text(
+                Vec(372, 1),
+                f"{bar.app.map.flags_placed:08d}",
+                fg,
+                Globals.font_small,
+            )
+
+            bar.draw_ui(Vec(407, 1), Vec(240, 30), Vec(9, 9))
+            bar.draw_ui(Vec(408, 2), Vec(240, 10), Vec(7, 7))
+            draw.draw_text(
+                Vec(419, 1),
+                f"{bar.app.map.cells_opened:08d}",
+                fg,
+                Globals.font_small,
+            )
+
+            bar.draw_ui(Vec(455, 1), Vec(240, 30), Vec(9, 9))
+            bar.draw_ui(Vec(456, 2), Vec(240, 20), Vec(7, 7))
+            draw.draw_text(
+                Vec(468, 1),
+                f"{bar.app.map.bombs_exploded:08d}",
+                fg,
+                Globals.font_small,
+            )
+
+        bar = gui.Menu(self, _renderer, Vec(0, 0), Vec(500, 11), False)
+        bar.add_button(gui.Button(Vec(1, 1), Vec(240, 48), Vec(18, 9), self.back))
 
         return bar
-
-
-class Button:
-    def __init__(self, pos: Vec, top_left: Vec, size: Vec, action):
-        self.pos = pos
-        self.top_left = top_left
-        self.size = size
-        self.action = action
-
-    def click(self, mouse_pos: Vec, run_action: bool):
-        flag = mouse_pos.in_rect(self.pos, self.size)
-        if (flag and run_action): self.activate()
-        return flag
-
-    def activate(self):
-        self.action()
-
-    def draw(self):
-        Menu.draw_ui(self.pos, self.top_left, self.size)
-
-class Menu:
-
-    @staticmethod
-    def draw_ui(pos: Vec, top_left: Vec, size: Vec):
-        draw.draw_texture(None, Sprites.gui, pos * 2, top_left + Vec(0, 448 if (Globals.dark_mode) else 0), size)
-
-    def __init__(self, app: App, renderer, top_left: Vec, size: Vec, active = True):
-        self.app = app
-        self.renderer = renderer
-        self.top_left = top_left
-        self.size = size
-        self.active = active
-
-        self.buttons = []
-
-    def add_button(self, button: Button):
-        self.buttons.append(button)
-
-    def click(self, mouse_pos: Vec, run_action: bool):
-        mouse_pos *= 0.5
-
-        if (not(self.active)): return None
-        if (not(mouse_pos.in_rect(self.top_left, self.size))): return None
-
-        for b in self.buttons:
-            if (b.click(mouse_pos, run_action)): return True
-        return False
-    
-    def draw(self):
-        if (not(self.active)): return
-
-        if (self.renderer != None):
-            self.renderer(self)
-
-        for b in self.buttons:
-            b.draw()
