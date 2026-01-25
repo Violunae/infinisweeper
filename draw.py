@@ -8,7 +8,11 @@ def clear_screen(color=(0, 0, 0)):
     Globals.screen.fill(color)
 
 def draw_polygon(camera: Camera, points, color = (255, 255, 255)):
-    trans_points = [Camera.static_transform(camera, point).get_tuple() for point in points]
+    if (camera != None):
+        trans_points = [camera.transform().get_tuple() for point in points]
+    else:
+        trans_points = [(point * 2).get_tuple() for point in points]
+
     #flat_points = [coord for point in trans_points for coord in point]
 
     pygame.draw.polygon(Globals.screen, color, trans_points)

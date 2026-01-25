@@ -36,10 +36,13 @@ class Vec:
     def get_tuple(self):
         return (self.x, self.y)
     
+    def in_rect(self, top_left: "Vec", size: "Vec"):
+        return (self.x >= top_left.x) and (self.y >= top_left.y) and (self.x < top_left.x + size.x) and (self.y < top_left.y + size.y)
+    
 class Camera:
     def __init__(self):
         self.pos = Vec(0, 0)
-        self.zoom = 32.0
+        self.zoom = 64.0
 
     def transform(self, point: Vec):
         return Vec((point.x - self.pos.x) * self.zoom + (Globals.resolution.x / 2), (point.y - self.pos.y) * self.zoom + (Globals.resolution.y / 2))

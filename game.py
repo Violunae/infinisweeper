@@ -15,6 +15,7 @@ class Cell:
     def open(self):
         self.opened = True
 
+
     def draw(self, camera: Camera, pos: Vec):
         frame = 0
         if (self.opened):
@@ -59,7 +60,7 @@ class Chunk:
 
     def unload(self, map):
         if (self.generated and (map.slot >= 0)):
-            save.save_chunk(map.slot, self.x, self.y, self.CHUNK_SIZE, self.to_bytes())
+            save.save_chunk(map.slot, self.x, self.y, self.to_bytes())
 
     def get_cell(self, map, pos: Vec):
         if (self.generated == False):
@@ -107,14 +108,27 @@ class Chunk:
  
 class Map:
 
-    def __init__(self, slot: int, seed=-1):
+    def __init__(self, slot: int, seed=-1, score=0, flags_placed=0, cells_opened=0, bombs_exploded=0):
         self.slot = slot
-        self.seed = seed if (seed != 0) else random.randint(0, 999999)
         self.chunks = {}
         self.camera = Camera()
 
+        self.seed = seed if (seed != -1) else random.randint(0, 999999)
+        self.score = score
+        self.flags_placed = flags_placed
+        self.cells_opened = cells_opened
+        self.bombs_exploded = bombs_exploded
+
+    @staticmethod
+    def load(slot, create):
+        data = save.reload_map(slot)
+        if (data == None):
+            if (create): return Map(slot, -1)
+            return None
+        return Map.from_bytes(slot, data)
+
     def update(self):
-        if (self.slot < 0):
+        if (self.slot == -1):
             self.demo()
         self.load_chunks()
     
@@ -192,7 +206,7 @@ class Map:
         if ((cell.flags > 0) or (cell.opened and (depth != 0))): return
 
         wasOpen = cell.opened 
-        cell.opened = True
+        cell.open()
         mines = self.count_mines_around(pos)
         cell.cached_num = mines
 
@@ -218,14 +232,41 @@ class Map:
             chunk.draw(self.camera)
 
     def save(self):
+        if (self.slot < 0): return
+        save.save_map(self)
         self.unload_chunks()
     
     def delete(self):
         save.delete_save(self.slot)
 
+    def to_bytes(self):
+        return struct.pack(
+            "<IlIII",
+            self.seed,
+            self.score,
+            self.flags_placed,
+            self.cells_opened,
+            self.bombs_exploded
+        )
+    
+    @staticmethod
+    def from_bytes(slot, data):
+        seed, score, flags_placed, cells_opened, bombs_exploded = struct.unpack(
+            "<IlIII", data
+        )
+
+        return Map(
+            slot,
+            seed,
+            score,
+            flags_placed,
+            cells_opened,
+            bombs_exploded
+        )
+    
     def demo(self):
-        self.camera.pos += Vec(0.1, 0.05)
-        cell_pos = self.camera.pos.floor() + Vec(15, 8 + random.randrange(-8, 8))
+        self.camera.pos += Vec(0.05, 0.025)
+        cell_pos = self.camera.pos.floor() + Vec(7, 4 + random.randrange(-8, 8))
         cell = self.get_cell(cell_pos)
         if (cell.mines > 0):
             if (cell.flags == 0):
