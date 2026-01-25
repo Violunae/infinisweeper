@@ -95,7 +95,8 @@ class App:
 
     def back(self):
         self.map.save()
-        self.map = game.Map(-1)
+        self.slot = -1
+        self.map = game.Map(self.slot)
         self.menu = self.create_menu()
         self.bar.active = False
 
