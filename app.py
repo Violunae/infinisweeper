@@ -4,6 +4,7 @@ import game
 import draw
 import save
 import gui
+import audio
 from globals import Globals
 
 from utils import *
@@ -25,28 +26,36 @@ class App:
         while self.running:
             for event in pygame.event.get():
                 if event.type == pygame.MOUSEBUTTONDOWN:
-                    if event.button == 2:
-                        dragging = True
-                        last_mouse_pos = Vec(*event.pos)
-
+                    if event.button in [1, 2, 3]:
+                        audio.play_sound(Globals.sound_click)
+                        if event.button == 2:
+                            dragging = True
+                            last_mouse_pos = Vec(*event.pos)
+                        
                 elif event.type == pygame.MOUSEBUTTONUP:
-                    if event.button in (1, 3):
-                        mouse_pos = Vec(*event.pos)
+                    mouse_pos = Vec(*event.pos)
+                    if event.button in [1, 2, 3]:
+                        audio.play_sound(Globals.sound_unclick)
+                        if event.button in [1, 3]:
+                            if (not(mouse_pos.in_rect(Vec(0, 0), Vec(1000, 1000)))):
+                                continue
 
-                        if self.menu.click(mouse_pos, True) is not None:
-                            continue
-                        if self.bar.click(mouse_pos, True) is not None:
-                            continue
+                            if self.menu.click(mouse_pos, True) is not None:
+                                continue
+                            if self.bar.click(mouse_pos, True) is not None:
+                                continue
 
-                        global_pos = self.map.camera.reverse_transform(mouse_pos).floor()
+                            global_pos = self.map.camera.reverse_transform(mouse_pos).floor()
 
-                        if event.button == 1:
-                            self.map.open_cell(global_pos)
-                        else:
-                            self.map.flag_cell(global_pos)
+                            if event.button == 1:
+                                opened = self.map.open_cell(global_pos)
+                                if (opened):
+                                    audio.play_sound(Globals.sound_open)
+                            else:
+                                self.map.flag_cell(global_pos)
 
-                    elif event.button == 2:
-                        dragging = False
+                        elif event.button == 2:
+                            dragging = False
 
                 elif event.type == pygame.MOUSEWHEEL:
                     if self.slot != -1:
@@ -238,17 +247,24 @@ class App:
                     gui.Label(
                         Vec(216, y + 13),
                         "NEW GAME",
-                        (30, 39, 44)
-                        if Globals.dark_mode
-                        else (106, 124, 148),
+                        (30, 39, 44) if Globals.dark_mode else (106, 124, 148),
                         Globals.font_big,
                     )
                 )
 
         menu.add_button(gui.Button(Vec(146, 314), Vec(144, 0), Vec(34, 34), self.quit))
-        # menu.add_button(Button(Vec(234, 314), Vec(240, 64), Vec(34, 34), lambda slot=-2: self.start_slot(slot)))
+        menu.add_button(gui.Button(Vec(234, 314), Vec(240, 64), Vec(34, 34), lambda slot=-2: self.start_slot(slot)))
         menu.add_button(
             gui.Button(Vec(322, 314), Vec(192, 0), Vec(34, 34), self.toggle_dark_mode)
+        )
+
+        menu.add_label(
+            gui.Label(
+                Vec(132, 366),
+                f"game by Violunae",
+                (255, 255, 255),
+                Globals.font_big,
+            )
         )
 
         return menu

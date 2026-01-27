@@ -9,3 +9,8 @@ class Globals:
 
     font_big = None
     font_small = None
+
+    sound_click = None
+    sound_unclick = None
+    sound_open = None
+    sound_explosion = None

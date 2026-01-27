@@ -4,6 +4,7 @@ import struct
 
 import draw
 import save
+import audio
 
 from utils import *
 
@@ -27,7 +28,7 @@ class ExplosionWave:
             return Vec(offset_x, offset_y)
 
         phase = (dist * 0.2 + life * 5.0) * math.tau
-        val = -math.sin(phase) * life
+        val = -math.sin(phase) * (life ** 2) * 1.5
 
         dx = cell_pos.x - self.pos.x
         dy = cell_pos.y - self.pos.y
@@ -256,7 +257,7 @@ class Map:
     def open_cell(self, pos: Vec, depth = 0):
         cell = self.get_cell(pos)
 
-        if ((cell.flags > 0) or (cell.opened and (depth != 0))): return
+        if ((cell.flags > 0) or (cell.opened and (depth != 0))): return False
 
         wasOpen = cell.opened 
         cell.open(self, pos)
@@ -273,6 +274,8 @@ class Map:
             self.open_cell(pos + Vec(-1,  1), depth + 1)
             self.open_cell(pos + Vec(-1,  0), depth + 1)
 
+        return True
+
     def flag_cell(self, pos: Vec):
         cell = self.get_cell(pos)
         if (cell.opened): return
@@ -284,7 +287,7 @@ class Map:
             self.flags_placed = self.flags_placed - 1
 
     def get_score(self):
-        return (self.cells_opened * 5) - (self.bombs_exploded * 100)
+        return (self.cells_opened * 5) - (self.bombs_exploded * 200)
     
     def get_playtime(self):
         current_time = int(time.time())
@@ -298,6 +301,8 @@ class Map:
             chunk.draw(self)
 
     def explode(self, pos: Vec):
+        if (self.slot != -1):
+            audio.play_sound(Globals.sound_explosion)
         self.explosion_waves.append(ExplosionWave(pos))
 
     def offset_tile_pos(self, pos: Vec):
@@ -359,9 +364,9 @@ class Map:
         self.camera.pos += Vec(0.05, 0.025)
         cell_pos = self.camera.pos.floor() + Vec(7, 4 + random.randrange(-8, 8))
         cell = self.get_cell(cell_pos)
-        if (cell.mines > 0):
-            if (cell.flags == 0):
-                self.flag_cell(cell_pos)
-        else:
+        if ((cell.mines == 0) or (random.randint(1, 100) <= 1)):
             if (not(cell.opened)):
                 self.open_cell(cell_pos)
+        else:
+            if (cell.flags == 0):
+                self.flag_cell(cell_pos)
